@@ -75,6 +75,11 @@ func addTUIFlags(cmd *spf13cobra.Command) {
 		cmd.Flags().Bool("tui-confirm", true, "Show confirmation before execution")
 		cmd.Flags().Bool("tui-flags", true, "Show flag configuration panel")
 	}
+	// 添加内部标记用于追踪 TUI 执行状态
+	if cmd.Annotations == nil {
+		cmd.Annotations = make(map[string]string)
+	}
+	cmd.Annotations["tui.executed"] = "false"
 }
 
 // wrapExecute 包装执行逻辑
@@ -87,16 +92,7 @@ func wrapExecute(cmd *spf13cobra.Command, config *EnhanceConfig) {
 
 	// 包装 PreRunE
 	cmd.PersistentPreRunE = func(c *spf13cobra.Command, args []string) error {
-		// 检查是否需要启动 TUI
-		if shouldUseTUIForCommand(c, config) {
-			if err := executeTUIForCommand(c, config); err != nil {
-				return err
-			}
-			// TUI 执行后不需要继续执行原有逻辑
-			return nil
-		}
-
-		// 否则执行原有的 PreRunE
+		// 执行原有的 PreRunE
 		if originalPersistentPreRunE != nil {
 			return originalPersistentPreRunE(c, args)
 		}
@@ -104,13 +100,6 @@ func wrapExecute(cmd *spf13cobra.Command, config *EnhanceConfig) {
 	}
 
 	cmd.PreRunE = func(c *spf13cobra.Command, args []string) error {
-		if shouldUseTUIForCommand(c, config) {
-			if err := executeTUIForCommand(c, config); err != nil {
-				return err
-			}
-			return nil
-		}
-
 		if originalPreRunE != nil {
 			return originalPreRunE(c, args)
 		}
@@ -120,7 +109,9 @@ func wrapExecute(cmd *spf13cobra.Command, config *EnhanceConfig) {
 	// 包装 RunE
 	if originalRunE != nil {
 		cmd.RunE = func(c *spf13cobra.Command, args []string) error {
-			if shouldUseTUIForCommand(c, config) {
+			// 检查是否需要启动 TUI（只执行一次）
+			if shouldUseTUIForCommand(c, config) && c.Annotations["tui.executed"] == "false" {
+				c.Annotations["tui.executed"] = "true"
 				return executeTUIForCommand(c, config)
 			}
 			return originalRunE(c, args)
@@ -130,7 +121,9 @@ func wrapExecute(cmd *spf13cobra.Command, config *EnhanceConfig) {
 	// 包装 Run
 	if originalRun != nil {
 		cmd.Run = func(c *spf13cobra.Command, args []string) {
-			if shouldUseTUIForCommand(c, config) {
+			// 检查是否需要启动 TUI（只执行一次）
+			if shouldUseTUIForCommand(c, config) && c.Annotations["tui.executed"] == "false" {
+				c.Annotations["tui.executed"] = "true"
 				if err := executeTUIForCommand(c, config); err != nil {
 					// TUI 模式出错，打印错误但不退出
 					printError(err)
@@ -138,6 +131,22 @@ func wrapExecute(cmd *spf13cobra.Command, config *EnhanceConfig) {
 				return
 			}
 			originalRun(c, args)
+		}
+	} else if originalRunE == nil {
+		// 如果命令既没有 Run 也没有 RunE，添加一个占位 Run 函数
+		// 这样 cobra 才会执行命令，从而触发 PersistentPreRunE
+		// 这对于有子命令的根命令特别重要
+		cmd.Run = func(c *spf13cobra.Command, args []string) {
+			// 检查是否需要启动 TUI（只执行一次）
+			if shouldUseTUIForCommand(c, config) && c.Annotations["tui.executed"] == "false" {
+				c.Annotations["tui.executed"] = "true"
+				if err := executeTUIForCommand(c, config); err != nil {
+					printError(err)
+				}
+				return
+			}
+			// 如果没有启用 TUI，显示帮助（默认行为）
+			c.Help()
 		}
 	}
 }
