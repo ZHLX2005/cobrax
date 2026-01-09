@@ -189,13 +189,36 @@ func executeTUIForCommand(cmd *spf13cobra.Command, config *EnhanceConfig) error 
 	return navigateAndExecute(renderer, cmd, config)
 }
 
-// navigateAndExecute 导航命令树并执行
+// navigateAndExecute 导航命令树并执行（支持扁平化视图）
 func navigateAndExecute(renderer tui.Renderer, cmd *spf13cobra.Command, config *EnhanceConfig) error {
-	// 如果有子命令，显示菜单
-	children := getAvailableCommands(cmd.Commands())
-	if len(children) > 0 {
+	// 获取所有可执行命令（扁平化列表）
+	executableCommands := GetExecutableCommands(cmd)
+
+	// 如果只有一个可执行命令且是当前命令，直接执行
+	if len(executableCommands) == 1 && executableCommands[0].ID == cmd.Name() && (cmd.Run != nil || cmd.RunE != nil) {
+		return executeLeafCommand(renderer, cmd, config)
+	}
+
+	// 如果有多个可执行命令，显示扁平化菜单
+	if len(executableCommands) > 0 {
+		// 构建菜单项，显示完整路径
+		menuItems := make([]tui.MenuItem, 0, len(executableCommands))
+		for _, execCmd := range executableCommands {
+			// 构建显示路径（去掉根命令名称）
+			displayPath := strings.TrimPrefix(execCmd.Use, cmd.Name()+" ")
+			if displayPath == execCmd.Use {
+				displayPath = execCmd.Name
+			}
+
+			menuItems = append(menuItems, tui.MenuItem{
+				ID:          execCmd.ID,
+				Label:       displayPath,
+				Description: execCmd.Short,
+			})
+		}
+
 		// 显示菜单让用户选择
-		selectedIndex, err := renderer.RenderCommandMenu(cmd.Name(), buildMenuItems(children))
+		selectedIndex, err := renderer.RenderCommandMenu(cmd.Name()+" Commands", menuItems)
 		if err != nil {
 			return err
 		}
@@ -204,12 +227,33 @@ func navigateAndExecute(renderer tui.Renderer, cmd *spf13cobra.Command, config *
 			return nil // 用户取消
 		}
 
-		// 递归执行选中的命令
-		selectedCmd := children[selectedIndex]
-		return navigateAndExecute(renderer, selectedCmd, config)
+		// 根据选择的 ID 查找对应的命令
+		selectedID := executableCommands[selectedIndex].ID
+		selectedCmd := findCommandByID(cmd, selectedID)
+
+		if selectedCmd == nil {
+			// 如果找不到命令，尝试通过路径查找
+			pathParts := strings.Fields(menuItems[selectedIndex].Label)
+			selectedCmd = FindCommandByPath(cmd, strings.Join(pathParts, " "))
+		}
+
+		if selectedCmd != nil {
+			return executeLeafCommand(renderer, selectedCmd, config)
+		}
 	}
 
-	// 叶子命令，配置 flags
+	// 如果没有可执行的子命令，尝试执行当前命令
+	if cmd.Run != nil || cmd.RunE != nil {
+		return executeLeafCommand(renderer, cmd, config)
+	}
+
+	// 显示帮助
+	return cmd.Help()
+}
+
+// executeLeafCommand 执行叶子命令
+func executeLeafCommand(renderer tui.Renderer, cmd *spf13cobra.Command, config *EnhanceConfig) error {
+	// 配置 flags
 	if config.TUIConfig != nil && config.TUIConfig.ShowFlags {
 		flagValues, err := configureFlags(renderer, cmd)
 		if err != nil {
@@ -236,6 +280,24 @@ func navigateAndExecute(renderer tui.Renderer, cmd *spf13cobra.Command, config *
 
 	// 执行命令
 	return executeOriginalCommand(cmd)
+}
+
+// findCommandByID 在命令树中查找指定 ID 的命令
+func findCommandByID(root *spf13cobra.Command, id string) *spf13cobra.Command {
+	if root.Name() == id {
+		return root
+	}
+
+	for _, cmd := range root.Commands() {
+		if cmd.Name() == id {
+			return cmd
+		}
+		if found := findCommandByID(cmd, id); found != nil {
+			return found
+		}
+	}
+
+	return nil
 }
 
 // ============================================================
