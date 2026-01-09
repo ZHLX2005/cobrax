@@ -432,12 +432,26 @@ func configureFlags(renderer tui.Renderer, cmd *spf13cobra.Command) (map[string]
 		if isTUIFlag(flag.Name) {
 			return
 		}
-		items = append(items, tui.FlagItem{
+		item := tui.FlagItem{
 			Name:         flag.Name,
 			Description:  flag.Usage,
 			DefaultValue: flag.DefValue,
 			CurrentValue: flag.DefValue,
-		})
+		}
+
+		// 确定 flag 类型
+		switch flag.Value.Type() {
+		case "bool":
+			item.Type = tui.FlagTypeBool
+		case "int", "int32", "int64":
+			item.Type = tui.FlagTypeInt
+		case "duration":
+			item.Type = tui.FlagTypeDuration
+		default:
+			item.Type = tui.FlagTypeString
+		}
+
+		items = append(items, item)
 	})
 
 	if len(items) == 0 {
@@ -460,8 +474,9 @@ func applyFlagValues(cmd *spf13cobra.Command, values map[string]string) {
 func buildCommandPreview(cmd *spf13cobra.Command) string {
 	var parts []string
 
-	// 构建命令路径
-	parts = append(parts, cmd.Name())
+	// 构建完整的命令路径（包括根命令）
+	cmdPath := GetCommandFullPath(cmd)
+	parts = append(parts, cmdPath)
 
 	// 添加 flags
 	cmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {

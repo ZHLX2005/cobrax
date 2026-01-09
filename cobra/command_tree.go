@@ -61,21 +61,16 @@ func flattenExecutableCommands(item *tui.CommandItem, path string) []*tui.Comman
 	}
 
 	// 如果是可执行命令，添加到结果
-	// 但是要跳过根命令（当path为空时），除非它是唯一的可执行命令
 	if item.IsRunnable {
-		// Skip root command if it has children - it's just a container
-		// Only include root command if it has no runnable children (it's a leaf)
-		if path != "" || len(item.Children) == 0 {
-			result = append(result, &tui.CommandItem{
-				ID:         item.ID,
-				Name:       item.Name,
-				Use:        item.Use,
-				Short:      item.Short,
-				Long:       item.Long,
-				IsRunnable: true,
-				Children:   nil, // 扁平化后不需要子节点
-			})
-		}
+		result = append(result, &tui.CommandItem{
+			ID:         item.ID,
+			Name:       item.Name,
+			Use:        item.Use,
+			Short:      item.Short,
+			Long:       item.Long,
+			IsRunnable: true,
+			Children:   nil, // 扁平化后不需要子节点
+		})
 	}
 
 	// 递归处理子节点

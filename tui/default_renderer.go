@@ -341,6 +341,18 @@ func (m *formModel) handleNavKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		return m, tea.Quit
 
+	case "left", "right":
+		// 切换 bool 值
+		item := m.items[m.cursor]
+		if item.Type == FlagTypeBool {
+			// 切换 true/false
+			if m.values[item.Name] == "true" {
+				m.values[item.Name] = "false"
+			} else {
+				m.values[item.Name] = "true"
+			}
+		}
+
 	case "e", "r":
 		// 进入编辑模式
 		item := m.items[m.cursor]
@@ -428,13 +440,25 @@ func (m *formModel) View() string {
 			if item.Description != "" {
 				text += "\n   " + m.theme.Styles.HelpStyle.Render(item.Description)
 			}
+			// 对于 bool 类型，显示特殊提示
+			if item.Type == FlagTypeBool {
+				text += "\n   " + m.theme.Styles.HelpStyle.Render("← → Toggle value")
+			}
 		}
 
 		items.WriteString(text + "\n")
 	}
 
-	// 构建帮助文本
-	helpText := m.theme.Styles.HelpStyle.Render("\n[↑↓/Tab Navigate] [Enter/Space Save&Quit] [E Edit] [Esc Cancel]")
+	// 构建帮助文本 - 动态根据当前 flag 类型显示不同的帮助
+	currentItem := m.items[m.cursor]
+	helpText := "[↑↓/Tab Navigate] [Enter/Space Save&Quit] "
+	if currentItem.Type == FlagTypeBool {
+		helpText += "[← → Toggle] "
+	} else {
+		helpText += "[E Edit] "
+	}
+	helpText += "[Esc Cancel]"
+	helpText = m.theme.Styles.HelpStyle.Render("\n" + helpText)
 
 	// 组合内容
 	content := title + "\n" + items.String() + helpText
