@@ -49,7 +49,8 @@ func GetExecutableCommands(cmd *spf13cobra.Command) []*tui.CommandItem {
 	if len(root.Children) > 0 {
 		var result []*tui.CommandItem
 		for _, child := range root.Children {
-			result = append(result, flattenExecutableCommands(child, root.Use)...)
+			// 不传递根命令名称，这样菜单只显示子命令名称，提高编译名兼容性
+			result = append(result, flattenExecutableCommands(child, "")...)
 		}
 		return result
 	}
@@ -61,20 +62,32 @@ func GetExecutableCommands(cmd *spf13cobra.Command) []*tui.CommandItem {
 func flattenExecutableCommands(item *tui.CommandItem, path string) []*tui.CommandItem {
 	result := make([]*tui.CommandItem, 0)
 
-	// 构建当前路径
+	// 构建当前路径 - 不包含根命令，提高编译名兼容性
+	// 当有根命令和子命令时，只显示子命令名称，不显示根命令前缀
 	currentPath := path
 	if path != "" {
+		// 如果已经有路径前缀，说明是嵌套命令，继续添加
 		currentPath = path + " " + item.Use
 	} else {
+		// 根级命令直接使用当前命令名称
 		currentPath = item.Use
 	}
 
 	// 如果是可执行命令，添加到结果
 	if item.IsRunnable {
+		// 对于子命令，不显示根命令前缀，提高编译名兼容性
+		displayPath := currentPath
+		// 检查是否包含根命令前缀（如果有多个部分）
+		parts := strings.Fields(displayPath)
+		if len(parts) > 1 {
+			// 只显示子命令部分，不显示根命令前缀
+			displayPath = strings.Join(parts[1:], " ")
+		}
+
 		result = append(result, &tui.CommandItem{
 			ID:         item.ID,
 			Name:       item.Name,
-			Use:        currentPath, // 使用完整路径作为 Use，这样菜单会显示完整路径
+			Use:        displayPath, // 使用简化后的路径，不包含根命令前缀
 			Short:      item.Short,
 			Long:       item.Long,
 			IsRunnable: true,

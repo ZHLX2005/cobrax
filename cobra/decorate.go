@@ -217,21 +217,28 @@ func navigateAndExecute(renderer tui.Renderer, cmd *spf13cobra.Command, config *
 
 	// 如果有多个可执行命令，显示扁平化菜单
 	if len(executableCommands) > 0 {
-		// 构建菜单项，显示完整路径（包含根命令）
+		// 构建菜单项，不显示根命令前缀，提高编译名兼容性
 		menuItems := make([]tui.MenuItem, 0, len(executableCommands))
 		for _, execCmd := range executableCommands {
-			// 查找实际的命令对象以获取完整路径
+			// 查找实际的命令对象
 			foundCmd := findCommandByID(cmd, execCmd.ID)
 			if foundCmd == nil {
 				continue
 			}
 
-			// 显示完整命令路径
-			fullPath := GetCommandFullPath(foundCmd)
+			// 不显示根命令前缀，只显示子命令名称
+			var displayLabel string
+			if foundCmd.Parent() == nil {
+				// 根命令直接显示名称
+				displayLabel = foundCmd.Name()
+			} else {
+				// 子命令只显示自己的名称，不显示根命令前缀
+				displayLabel = foundCmd.Name()
+			}
 
 			menuItems = append(menuItems, tui.MenuItem{
 				ID:          execCmd.ID,
-				Label:       fullPath,
+				Label:       displayLabel,
 				Description: execCmd.Short,
 			})
 		}
@@ -578,11 +585,22 @@ func executeOriginalCommand(cmd *spf13cobra.Command) error {
 		rootCmd = rootCmd.Parent()
 	}
 
-	// Build the command path (e.g., "gocmds note")
-	cmdPath := GetCommandFullPath(cmd)
+	// Build the command path - 不包含根命令名，避免 "unknown command" 错误
+	var args []string
+	if cmd.Parent() != nil {
+		// 子命令只传递子命令路径（不含根命令名）
+		var cmdParts []string
+		current := cmd
+		for current.Parent() != nil { // 只遍历到根命令的子命令
+			cmdParts = append([]string{current.Name()}, cmdParts...)
+			current = current.Parent()
+		}
+		args = cmdParts
+	} else {
+		// 根命令直接执行，不需要传递命令名
+		args = []string{}
+	}
 
-	// Build args: split command path and add any remaining args
-	args := strings.Fields(cmdPath)
 	// Add any additional args from flags
 	if remainingArgs := cmd.Flags().Args(); len(remainingArgs) > 0 {
 		args = append(args, remainingArgs...)
