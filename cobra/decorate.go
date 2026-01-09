@@ -217,18 +217,21 @@ func navigateAndExecute(renderer tui.Renderer, cmd *spf13cobra.Command, config *
 
 	// 如果有多个可执行命令，显示扁平化菜单
 	if len(executableCommands) > 0 {
-		// 构建菜单项，显示完整路径
+		// 构建菜单项，显示完整路径（包含根命令）
 		menuItems := make([]tui.MenuItem, 0, len(executableCommands))
 		for _, execCmd := range executableCommands {
-			// 构建显示路径（去掉根命令名称）
-			displayPath := strings.TrimPrefix(execCmd.Use, cmd.Name()+" ")
-			if displayPath == execCmd.Use {
-				displayPath = execCmd.Name
+			// 查找实际的命令对象以获取完整路径
+			foundCmd := findCommandByID(cmd, execCmd.ID)
+			if foundCmd == nil {
+				continue
 			}
+
+			// 显示完整命令路径
+			fullPath := GetCommandFullPath(foundCmd)
 
 			menuItems = append(menuItems, tui.MenuItem{
 				ID:          execCmd.ID,
-				Label:       displayPath,
+				Label:       fullPath,
 				Description: execCmd.Short,
 			})
 		}
@@ -425,34 +428,42 @@ func buildMenuItems(cmds []*spf13cobra.Command) []tui.MenuItem {
 }
 
 func configureFlags(renderer tui.Renderer, cmd *spf13cobra.Command) (map[string]string, error) {
-	flags := cmd.LocalFlags()
 	var items []tui.FlagItem
+	seen := make(map[string]bool) // 用于跟踪已添加的 flags，避免重复
 
-	flags.VisitAll(func(flag *pflag.Flag) {
-		if isTUIFlag(flag.Name) {
-			return
-		}
-		item := tui.FlagItem{
-			Name:         flag.Name,
-			Description:  flag.Usage,
-			DefaultValue: flag.DefValue,
-			CurrentValue: flag.DefValue,
-		}
+	// 遍历当前命令及其所有父命令，聚合所有 flags
+	current := cmd
+	for current != nil {
+		current.LocalFlags().VisitAll(func(flag *pflag.Flag) {
+			if isTUIFlag(flag.Name) || seen[flag.Name] {
+				return
+			}
 
-		// 确定 flag 类型
-		switch flag.Value.Type() {
-		case "bool":
-			item.Type = tui.FlagTypeBool
-		case "int", "int32", "int64":
-			item.Type = tui.FlagTypeInt
-		case "duration":
-			item.Type = tui.FlagTypeDuration
-		default:
-			item.Type = tui.FlagTypeString
-		}
+			item := tui.FlagItem{
+				Name:         flag.Name,
+				Description:  flag.Usage,
+				DefaultValue: flag.DefValue,
+				CurrentValue: flag.DefValue,
+			}
 
-		items = append(items, item)
-	})
+			// 确定 flag 类型
+			switch flag.Value.Type() {
+			case "bool":
+				item.Type = tui.FlagTypeBool
+			case "int", "int32", "int64":
+				item.Type = tui.FlagTypeInt
+			case "duration":
+				item.Type = tui.FlagTypeDuration
+			default:
+				item.Type = tui.FlagTypeString
+			}
+
+			items = append(items, item)
+			seen[flag.Name] = true
+		})
+
+		current = current.Parent()
+	}
 
 	if len(items) == 0 {
 		return nil, nil
@@ -462,35 +473,46 @@ func configureFlags(renderer tui.Renderer, cmd *spf13cobra.Command) (map[string]
 }
 
 func applyFlagValues(cmd *spf13cobra.Command, values map[string]string) {
-	for name, value := range values {
-		flag := cmd.LocalFlags().Lookup(name)
-		if flag != nil {
-			flag.Value.Set(value)
-			flag.Changed = true
+	// 遍历当前命令及其所有父命令，应用对应的 flag 值
+	current := cmd
+	for current != nil {
+		for name, value := range values {
+			flag := current.LocalFlags().Lookup(name)
+			if flag != nil {
+				flag.Value.Set(value)
+				flag.Changed = true
+			}
 		}
+		current = current.Parent()
 	}
 }
 
 func buildCommandPreview(cmd *spf13cobra.Command) string {
 	var parts []string
+	seen := make(map[string]bool) // 用于跟踪已添加的 flags，避免重复
 
 	// 构建完整的命令路径（包括根命令）
 	cmdPath := GetCommandFullPath(cmd)
 	parts = append(parts, cmdPath)
 
-	// 添加 flags
-	cmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {
-		if flag.Changed && !isTUIFlag(flag.Name) {
-			key := fmt.Sprintf("--%s", flag.Name)
-			if flag.Value.Type() == "bool" {
-				if flag.Value.String() == "true" {
-					parts = append(parts, key)
+	// 遍历当前命令及其所有父命令，添加所有变更后的 flags
+	current := cmd
+	for current != nil {
+		current.LocalFlags().VisitAll(func(flag *pflag.Flag) {
+			if flag.Changed && !isTUIFlag(flag.Name) && !seen[flag.Name] {
+				key := fmt.Sprintf("--%s", flag.Name)
+				if flag.Value.Type() == "bool" {
+					if flag.Value.String() == "true" {
+						parts = append(parts, key)
+					}
+				} else {
+					parts = append(parts, fmt.Sprintf("%s=%s", key, flag.Value.String()))
 				}
-			} else {
-				parts = append(parts, fmt.Sprintf("%s=%s", key, flag.Value.String()))
+				seen[flag.Name] = true
 			}
-		}
-	})
+		})
+		current = current.Parent()
+	}
 
 	return strings.Join(parts, " ")
 }

@@ -318,58 +318,74 @@ func (c *Command) configureFlags(renderer tui.Renderer, cmd *Command) (map[strin
 	return renderer.RenderFlagForm("Configure: "+cmd.Use, flagItems)
 }
 
-// collectFlagItems 收集 flag 项
+// collectFlagItems 收集 flag 项（包括所有父命令的 flags）
 func (c *Command) collectFlagItems(cmd *Command) []tui.FlagItem {
-	flags := cmd.LocalFlags()
 	var items []tui.FlagItem
+	seen := make(map[string]bool) // 用于跟踪已添加的 flags，避免重复
 
-	flags.VisitAll(func(flag *pflag.Flag) {
-		// 跳过 TUI 相关的 flags
-		if strings.HasPrefix(flag.Name, "tui-") || flag.Name == "tui" {
-			return
+	// 遍历当前命令及其所有父命令，聚合所有 flags
+	current := cmd
+	for current != nil {
+		current.LocalFlags().VisitAll(func(flag *pflag.Flag) {
+			if strings.HasPrefix(flag.Name, "tui-") || flag.Name == "tui" || seen[flag.Name] {
+				return
+			}
+
+			item := tui.FlagItem{
+				Name:         flag.Name,
+				ShortName:    flag.Shorthand,
+				Description:  flag.Usage,
+				DefaultValue: flag.DefValue,
+				CurrentValue: flag.DefValue,
+				Required:     false,
+			}
+
+			// 确定 flag 类型
+			switch flag.Value.Type() {
+			case "bool":
+				item.Type = tui.FlagTypeBool
+			case "int", "int32", "int64":
+				item.Type = tui.FlagTypeInt
+			case "duration":
+				item.Type = tui.FlagTypeDuration
+			default:
+				item.Type = tui.FlagTypeString
+			}
+
+			items = append(items, item)
+			seen[flag.Name] = true
+		})
+
+		if current.Parent() == nil {
+			break
 		}
-
-		item := tui.FlagItem{
-			Name:         flag.Name,
-			ShortName:    flag.Shorthand,
-			Description:  flag.Usage,
-			DefaultValue: flag.DefValue,
-			CurrentValue: flag.DefValue,
-			Required:     false,
-		}
-
-		// 确定 flag 类型
-		switch flag.Value.Type() {
-		case "bool":
-			item.Type = tui.FlagTypeBool
-		case "int", "int32", "int64":
-			item.Type = tui.FlagTypeInt
-		case "duration":
-			item.Type = tui.FlagTypeDuration
-		default:
-			item.Type = tui.FlagTypeString
-		}
-
-		items = append(items, item)
-	})
+		current = c.wrapCommand(current.Parent())
+	}
 
 	return items
 }
 
-// applyFlagValues 应用 flag 值
+// applyFlagValues 应用 flag 值（包括所有父命令的 flags）
 func (c *Command) applyFlagValues(cmd *Command, values map[string]string) error {
-	for name, value := range values {
-		flag := cmd.LocalFlags().Lookup(name)
-		if flag == nil {
-			continue
+	// 遍历当前命令及其所有父命令，应用对应的 flag 值
+	current := cmd
+	for current != nil {
+		for name, value := range values {
+			flag := current.LocalFlags().Lookup(name)
+			if flag != nil {
+				if err := flag.Value.Set(value); err != nil {
+					return fmt.Errorf("failed to set flag %s: %w", name, err)
+				}
+
+				// 标记为已改变
+				flag.Changed = true
+			}
 		}
 
-		if err := flag.Value.Set(value); err != nil {
-			return fmt.Errorf("failed to set flag %s: %w", name, err)
+		if current.Parent() == nil {
+			break
 		}
-
-		// 标记为已改变
-		flag.Changed = true
+		current = c.wrapCommand(current.Parent())
 	}
 
 	return nil
@@ -389,30 +405,29 @@ func (c *Command) confirmExecution(renderer tui.Renderer, path []*Command) (bool
 // buildCommandString 构建命令字符串
 func (c *Command) buildCommandString(path []*Command) string {
 	var parts []string
+	seen := make(map[string]bool) // 用于跟踪已添加的 flags，避免重复
 
 	// 添加命令路径
 	for _, cmd := range path {
 		parts = append(parts, cmd.Use)
 	}
 
-	// 获取最后一个命令的 flags
-	lastCmd := path[len(path)-1]
-	lastCmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {
-		if flag.Changed {
-			if flag.Name == "help" {
-				return
-			}
-
-			key := fmt.Sprintf("--%s", flag.Name)
-			if flag.Value.Type() == "bool" {
-				if flag.Value.String() == "true" {
-					parts = append(parts, key)
+	// 遍历所有命令（包括所有父命令），添加所有变更后的 flags
+	for _, cmd := range path {
+		cmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {
+			if flag.Changed && flag.Name != "help" && !seen[flag.Name] {
+				key := fmt.Sprintf("--%s", flag.Name)
+				if flag.Value.Type() == "bool" {
+					if flag.Value.String() == "true" {
+						parts = append(parts, key)
+					}
+				} else {
+					parts = append(parts, fmt.Sprintf("%s=%s", key, flag.Value.String()))
 				}
-			} else {
-				parts = append(parts, fmt.Sprintf("%s=%s", key, flag.Value.String()))
+				seen[flag.Name] = true
 			}
-		}
-	})
+		})
+	}
 
 	return strings.Join(parts, " ")
 }
