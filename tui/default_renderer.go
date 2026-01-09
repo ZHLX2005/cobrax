@@ -444,10 +444,10 @@ func (m *formModel) View() string {
 		items.WriteString(m.theme.Styles.HelpStyle.Render(fmt.Sprintf("  %s flags:", source)) + "\n")
 
 		for _, item := range sourceItems {
-			// 找到项目索引
+			// 找到项目索引（通过指针比较修复索引查找问题）
 			var i int
-			for j, it := range m.items {
-				if &it == item {
+			for j := range m.items {
+				if &m.items[j] == item {
 					i = j
 					break
 				}
