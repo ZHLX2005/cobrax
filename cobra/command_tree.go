@@ -45,6 +45,15 @@ func BuildCommandTree(cmd *spf13cobra.Command, path string) *tui.CommandItem {
 // GetExecutableCommands 获取所有可执行的命令（扁平化列表）
 func GetExecutableCommands(cmd *spf13cobra.Command) []*tui.CommandItem {
 	root := BuildCommandTree(cmd, "")
+	// 如果根命令有子命令，则只返回子命令中的可执行命令，不返回根命令本身
+	if len(root.Children) > 0 {
+		var result []*tui.CommandItem
+		for _, child := range root.Children {
+			result = append(result, flattenExecutableCommands(child, root.Use)...)
+		}
+		return result
+	}
+	// 如果根命令没有子命令，则返回根命令本身
 	return flattenExecutableCommands(root, "")
 }
 
@@ -55,9 +64,9 @@ func flattenExecutableCommands(item *tui.CommandItem, path string) []*tui.Comman
 	// 构建当前路径
 	currentPath := path
 	if path != "" {
-		currentPath = path + " " + item.Name
+		currentPath = path + " " + item.Use
 	} else {
-		currentPath = item.Name
+		currentPath = item.Use
 	}
 
 	// 如果是可执行命令，添加到结果
@@ -65,7 +74,7 @@ func flattenExecutableCommands(item *tui.CommandItem, path string) []*tui.Comman
 		result = append(result, &tui.CommandItem{
 			ID:         item.ID,
 			Name:       item.Name,
-			Use:        item.Use,
+			Use:        currentPath, // 使用完整路径作为 Use，这样菜单会显示完整路径
 			Short:      item.Short,
 			Long:       item.Long,
 			IsRunnable: true,
@@ -122,9 +131,7 @@ func GetCommandFullPath(cmd *spf13cobra.Command) string {
 	current := cmd
 
 	for current != nil {
-		if current.Parent() != nil {
-			pathParts = append([]string{current.Name()}, pathParts...)
-		}
+		pathParts = append([]string{current.Name()}, pathParts...)
 		current = current.Parent()
 	}
 

@@ -418,35 +418,68 @@ func (m *formModel) View() string {
 	// 构建标题
 	title := titleStyle.Render("Configure flags:")
 
+	// 按来源命令分组表单项
+	itemsBySource := make(map[string][]*FlagItem)
+	for i, item := range m.items {
+		source := item.SourceCommand
+		if source == "" {
+			source = "Global"
+		}
+		if _, ok := itemsBySource[source]; !ok {
+			itemsBySource[source] = make([]*FlagItem, 0)
+		}
+		itemsBySource[source] = append(itemsBySource[source], &m.items[i])
+	}
+
 	// 构建表单项
 	var items strings.Builder
-	for i, item := range m.items {
-		cursor := " "
-		if i == m.cursor {
-			cursor = "▶"
+	firstGroup := true
+
+	for source, sourceItems := range itemsBySource {
+		// 显示命令标题
+		if !firstGroup {
+			items.WriteString("\n")
 		}
+		firstGroup = false
+		items.WriteString(m.theme.Styles.HelpStyle.Render(fmt.Sprintf("  %s flags:", source)) + "\n")
 
-		var valueDisplay string
-		if m.editMode && i == m.cursor {
-			valueDisplay = m.editBuffer + "_"
-		} else {
-			valueDisplay = m.values[item.Name]
-		}
-
-		text := fmt.Sprintf("%s %s: [%s]", cursor, item.Name, valueDisplay)
-
-		if i == m.cursor {
-			text = m.theme.Styles.SelectedStyle.Render(text)
-			if item.Description != "" {
-				text += "\n   " + m.theme.Styles.HelpStyle.Render(item.Description)
+		for _, item := range sourceItems {
+			// 找到项目索引
+			var i int
+			for j, it := range m.items {
+				if &it == item {
+					i = j
+					break
+				}
 			}
-			// 对于 bool 类型，显示特殊提示
-			if item.Type == FlagTypeBool {
-				text += "\n   " + m.theme.Styles.HelpStyle.Render("← → Toggle value")
-			}
-		}
 
-		items.WriteString(text + "\n")
+			cursor := " "
+			if i == m.cursor {
+				cursor = "▶"
+			}
+
+			var valueDisplay string
+			if m.editMode && i == m.cursor {
+				valueDisplay = m.editBuffer + "_"
+			} else {
+				valueDisplay = m.values[item.Name]
+			}
+
+			text := fmt.Sprintf("%s %s: [%s]", cursor, item.Name, valueDisplay)
+
+			if i == m.cursor {
+				text = m.theme.Styles.SelectedStyle.Render(text)
+				if item.Description != "" {
+					text += "\n   " + m.theme.Styles.HelpStyle.Render(item.Description)
+				}
+				// 对于 bool 类型，显示特殊提示
+				if item.Type == FlagTypeBool {
+					text += "\n   " + m.theme.Styles.HelpStyle.Render("← → Toggle value")
+				}
+			}
+
+			items.WriteString("  " + text + "\n")
+		}
 	}
 
 	// 构建帮助文本 - 动态根据当前 flag 类型显示不同的帮助

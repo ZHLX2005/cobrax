@@ -76,6 +76,9 @@ type FlagItem struct {
 	// Type flag 类型
 	Type FlagType
 
+	// SourceCommand 参数来源的命令名称
+	SourceCommand string
+
 	// Options 可选值列表
 	// 对于枚举类型的 flag，限制可选择的值
 	Options []FlagOption

@@ -326,6 +326,7 @@ func (c *Command) collectFlagItems(cmd *Command) []tui.FlagItem {
 	// 遍历当前命令及其所有父命令，聚合所有 flags
 	current := cmd
 	for current != nil {
+		// 收集 LocalFlags
 		current.LocalFlags().VisitAll(func(flag *pflag.Flag) {
 			if strings.HasPrefix(flag.Name, "tui-") || flag.Name == "tui" || seen[flag.Name] {
 				return
@@ -338,6 +339,39 @@ func (c *Command) collectFlagItems(cmd *Command) []tui.FlagItem {
 				DefaultValue: flag.DefValue,
 				CurrentValue: flag.DefValue,
 				Required:     false,
+				SourceCommand: current.Name(), // 设置参数来源的命令名称
+			}
+
+			// 确定 flag 类型
+			switch flag.Value.Type() {
+			case "bool":
+				item.Type = tui.FlagTypeBool
+			case "int", "int32", "int64":
+				item.Type = tui.FlagTypeInt
+			case "duration":
+				item.Type = tui.FlagTypeDuration
+			default:
+				item.Type = tui.FlagTypeString
+			}
+
+			items = append(items, item)
+			seen[flag.Name] = true
+		})
+
+		// 收集 PersistentFlags
+		current.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+			if strings.HasPrefix(flag.Name, "tui-") || flag.Name == "tui" || seen[flag.Name] {
+				return
+			}
+
+			item := tui.FlagItem{
+				Name:         flag.Name,
+				ShortName:    flag.Shorthand,
+				Description:  flag.Usage,
+				DefaultValue: flag.DefValue,
+				CurrentValue: flag.DefValue,
+				Required:     false,
+				SourceCommand: current.Name(), // 设置参数来源的命令名称
 			}
 
 			// 确定 flag 类型
@@ -371,7 +405,12 @@ func (c *Command) applyFlagValues(cmd *Command, values map[string]string) error 
 	current := cmd
 	for current != nil {
 		for name, value := range values {
+			// 先尝试查找 LocalFlag
 			flag := current.LocalFlags().Lookup(name)
+			if flag == nil {
+				// 如果没有找到，尝试查找 PersistentFlag
+				flag = current.PersistentFlags().Lookup(name)
+			}
 			if flag != nil {
 				if err := flag.Value.Set(value); err != nil {
 					return fmt.Errorf("failed to set flag %s: %w", name, err)
@@ -414,7 +453,23 @@ func (c *Command) buildCommandString(path []*Command) string {
 
 	// 遍历所有命令（包括所有父命令），添加所有变更后的 flags
 	for _, cmd := range path {
+		// 检查 LocalFlags
 		cmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {
+			if flag.Changed && flag.Name != "help" && !seen[flag.Name] {
+				key := fmt.Sprintf("--%s", flag.Name)
+				if flag.Value.Type() == "bool" {
+					if flag.Value.String() == "true" {
+						parts = append(parts, key)
+					}
+				} else {
+					parts = append(parts, fmt.Sprintf("%s=%s", key, flag.Value.String()))
+				}
+				seen[flag.Name] = true
+			}
+		})
+
+		// 检查 PersistentFlags
+		cmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
 			if flag.Changed && flag.Name != "help" && !seen[flag.Name] {
 				key := fmt.Sprintf("--%s", flag.Name)
 				if flag.Value.Type() == "bool" {
