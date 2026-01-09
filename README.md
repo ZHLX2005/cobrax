@@ -1,16 +1,17 @@
 # cobra
 
-> Enhanced Cobra CLI with interactive TUI support
+> Enhanced Cobra CLI with interactive TUI support using Decorator Pattern
 
-`github.com/ZHLX2005/cobra` is an enhanced version of [spf13/cobra](https://github.com/spf13/cobra) that maintains 100% API compatibility while adding interactive TUI (Terminal User Interface) support.
+`github.com/ZHLX2005/cobra` is an enhanced version of [spf13/cobra](https://github.com/spf13/cobra) that maintains 100% API compatibility while adding interactive TUI (Terminal User Interface) support **using the decorator pattern**.
 
 ## Features
 
-- **100% API Compatible** - Drop-in replacement for `spf13/cobra`
+- **Zero Code Changes** - Enhance existing cobra commands without modifying imports
+- **Decorator Pattern** - Non-invasive enhancement using `cobra.Enhance()`
+- **100% API Compatible** - Keep using `github.com/spf13/cobra` as before
 - **Interactive TUI** - Automatic TUI generation based on command tree
 - **Customizable** - Custom renderers and panel builders
 - **Theme System** - Built-in themes (default, dark, light, minimal, dracula, nord, monokai)
-- **Zero Configuration** - Works out of the box with sensible defaults
 
 ## Installation
 
@@ -20,7 +21,79 @@ go get github.com/ZHLX2005/cobra
 
 ## Quick Start
 
-### Basic Usage
+### Decorator Pattern (Recommended)
+
+**No need to change your existing imports!** Just wrap your command with `cobra.Enhance()`:
+
+```go
+package main
+
+import (
+    "github.com/spf13/cobra"  // Keep your original import!
+)
+
+var rootCmd = &cobra.Command{
+    Use:   "myapp",
+    Short: "My application",
+    Run: func(cmd *cobra.Command, args []string) {
+        // Your existing code
+    },
+}
+
+func main() {
+    // Just wrap your existing command!
+    enhancedCmd := cobra.Enhance(rootCmd,
+        cobra.WithTUIEnabled(true),
+        cobra.WithTheme("dracula"),
+    )
+
+    enhancedCmd.Execute()
+}
+```
+
+### For Existing Projects
+
+Got an existing cobra project? Just add the enhancement wrapper:
+
+```go
+import (
+    "github.com/spf13/cobra"
+
+    // Import the enhancement package
+    cobrax "github.com/ZHLX2005/cobra/cobra"
+)
+
+// Your existing command - NO CHANGES NEEDED!
+var rootCmd = &cobra.Command{
+    Use:   "glm4v",
+    Short: "GLM-4.5V Tool",
+    Run: func(cmd *cobra.Command, args []string) {
+        // Your existing logic
+    },
+}
+
+func init() {
+    // Your existing flags
+    rootCmd.Flags().StringVar(&apiKey, "api-key", "", "API Key")
+    // ...
+}
+
+func main() {
+    // Just wrap it before Execute()!
+    enhanced := cobrax.Enhance(rootCmd,
+        cobrax.WithTUIEnabled(true),
+        cobrax.WithTheme("nord"),
+    )
+
+    enhanced.Execute()
+}
+```
+
+---
+
+### Traditional Usage (Full Replacement)
+
+If you prefer to fully replace cobra:
 
 ```go
 package main
