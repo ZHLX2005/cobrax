@@ -420,6 +420,7 @@ func (m *formModel) View() string {
 
 	// 按来源命令分组表单项
 	itemsBySource := make(map[string][]*FlagItem)
+	var sourceOrder []string // 保持分组顺序
 	for i, item := range m.items {
 		source := item.SourceCommand
 		if source == "" {
@@ -427,6 +428,7 @@ func (m *formModel) View() string {
 		}
 		if _, ok := itemsBySource[source]; !ok {
 			itemsBySource[source] = make([]*FlagItem, 0)
+			sourceOrder = append(sourceOrder, source)
 		}
 		itemsBySource[source] = append(itemsBySource[source], &m.items[i])
 	}
@@ -435,13 +437,18 @@ func (m *formModel) View() string {
 	var items strings.Builder
 	firstGroup := true
 
-	for source, sourceItems := range itemsBySource {
-		// 显示命令标题
+	for _, source := range sourceOrder {
+		sourceItems := itemsBySource[source]
+		// 显示命令标题 - 使用固定颜色样式
 		if !firstGroup {
 			items.WriteString("\n")
 		}
 		firstGroup = false
-		items.WriteString(m.theme.Styles.HelpStyle.Render(fmt.Sprintf("  %s flags:", source)) + "\n")
+		// 使用主题的 Primary 颜色标记分组标识，增强视觉区分
+		groupStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(m.theme.Colors.Primary)
+		items.WriteString(groupStyle.Render(fmt.Sprintf("  %s flags:", source)) + "\n")
 
 		for _, item := range sourceItems {
 			// 找到项目索引（通过指针比较修复索引查找问题）
