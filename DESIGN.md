@@ -14,7 +14,7 @@ cobra-x 是对 [spf13/cobra](https://github.com/spf13/cobra) 的增强版本，�
 ## 项目结构
 
 ```
-github.com/ZHLX2005/cobra/
+github.com/ZHLX2005/cobrax/
 ├── cobra/                    # 核心 cobra 兼容层
 │   ├── command.go           # Command 结构（继承自原始 cobra）
 │   ├── flag.go              # Flag 处理
@@ -366,7 +366,7 @@ func (c *Command) shouldUseTUI() bool {
 import "github.com/spf13/cobra"
 
 // 或者切换到增强版
-import "github.com/ZHLX2005/cobra"
+import "github.com/ZHLX2005/cobrax"
 
 // API 完全相同
 ```
@@ -459,7 +459,7 @@ require (
 package main
 
 import (
-    "github.com/ZHLX2005/cobra"
+    "github.com/ZHLX2005/cobrax"
 )
 
 func main() {

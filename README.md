@@ -2,7 +2,7 @@
 
 > Enhanced Cobra CLI with interactive TUI support using Decorator Pattern
 
-`github.com/ZHLX2005/cobra` is an enhanced version of [spf13/cobra](https://github.com/spf13/cobra) that maintains 100% API compatibility while adding interactive TUI (Terminal User Interface) support **using the decorator pattern**.
+`github.com/ZHLX2005/cobrax` is an enhanced version of [spf13/cobra](https://github.com/spf13/cobra) that maintains 100% API compatibility while adding interactive TUI (Terminal User Interface) support **using the decorator pattern**.
 
 ## Features
 
@@ -16,7 +16,7 @@
 ## Installation
 
 ```bash
-go get github.com/ZHLX2005/cobra
+go get github.com/ZHLX2005/cobrax
 ```
 
 ## Quick Start
@@ -60,7 +60,7 @@ import (
     "github.com/spf13/cobra"
 
     // Import the enhancement package
-    cobrax "github.com/ZHLX2005/cobra/cobra"
+    cobrax "github.com/ZHLX2005/cobrax/cobra"
 )
 
 // Your existing command - NO CHANGES NEEDED!
@@ -99,8 +99,8 @@ If you prefer to fully replace cobra:
 package main
 
 import (
-    "github.com/ZHLX2005/cobra/cobra"
-    "github.com/ZHLX2005/cobra/tui/style"
+    "github.com/ZHLX2005/cobrax/cobra"
+    "github.com/ZHLX2005/cobrax/tui/style"
 )
 
 func main() {
@@ -271,7 +271,7 @@ cmd.SetTUIRenderer(&MyRenderer{})
 ### Custom Panel Builder
 
 ```go
-import "github.com/ZHLX2005/cobra/ext"
+import "github.com/ZHLX2005/cobrax/ext"
 
 type MyPanelBuilder struct {
     ext.DefaultPanelBuilder
@@ -305,7 +305,7 @@ Simply change the import:
 import "github.com/spf13/cobra"
 
 // After
-import "github.com/ZHLX2005/cobra/cobra"
+import "github.com/ZHLX2005/cobrax/cobra"
 ```
 
 Then optionally enable TUI:

@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ZHLX2005/cobra/tui/style"
+	"github.com/ZHLX2005/cobrax/tui/style"
 )
 
 // DefaultRenderer 默认 TUI 渲染器

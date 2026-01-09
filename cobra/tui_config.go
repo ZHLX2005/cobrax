@@ -1,8 +1,8 @@
 package cobra
 
 import (
-	"github.com/ZHLX2005/cobra/tui"
-	"github.com/ZHLX2005/cobra/tui/style"
+	"github.com/ZHLX2005/cobrax/tui"
+	"github.com/ZHLX2005/cobrax/tui/style"
 )
 
 // TUIConfig TUI 面板配置

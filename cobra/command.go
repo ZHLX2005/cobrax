@@ -8,8 +8,8 @@ import (
 	spf13cobra "github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/ZHLX2005/cobra/tui"
-	"github.com/ZHLX2005/cobra/tui/style"
+	"github.com/ZHLX2005/cobrax/tui"
+	"github.com/ZHLX2005/cobrax/tui/style"
 )
 
 // Command 是 cobra-x 的核心命令结构

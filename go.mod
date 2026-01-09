@@ -1,4 +1,4 @@
-module github.com/ZHLX2005/cobra
+module github.com/ZHLX2005/cobrax
 
 go 1.24.0
 

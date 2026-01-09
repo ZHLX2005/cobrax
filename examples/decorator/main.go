@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra" // 保持原始导入不变！
 
 	// 导入增强包，使用别名避免冲突
-	cobrax "github.com/ZHLX2005/cobra/cobra"
+	cobrax "github.com/ZHLX2005/cobrax/cobra"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 	stream  bool
 
 	// 文件服务器配置
-	fileServerURL  string
+	fileServerURL   string
 	fileServerToken string
 )
 
@@ -49,7 +49,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "d237351671da318126fb5bd2f1372a08.EdkVfX8wE0JtcZpP", "API Key (必填)")
+	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "API Key (必填)")
 	rootCmd.PersistentFlags().StringVar(&baseURL, "base-url", "https://open.bigmodel.cn/api/paas/v4", "API Base URL")
 	rootCmd.PersistentFlags().StringVar(&model, "model", "glm-4.5v", "模型名称")
 	rootCmd.PersistentFlags().BoolVar(&stream, "stream", true, "是否使用流式输出")
@@ -71,8 +71,8 @@ func main() {
 	// ============================================================
 	enhancedRootCmd := cobrax.Enhance(rootCmd,
 		cobrax.WithEnhanceTUIEnabled(true), // 启用 TUI
-		cobrax.WithEnhanceTheme("dracula"),  // 使用 dracula 主题
-		cobrax.WithEnhanceTUIConfirm(true),  // 执行前确认
+		cobrax.WithEnhanceTheme("dracula"), // 使用 dracula 主题
+		cobrax.WithEnhanceTUIConfirm(true), // 执行前确认
 	)
 
 	// 执行增强后的命令

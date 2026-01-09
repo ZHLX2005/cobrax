@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ZHLX2005/cobra/cobra"
-	"github.com/ZHLX2005/cobra/tui/style"
+	"github.com/ZHLX2005/cobrax/cobra"
+	"github.com/ZHLX2005/cobrax/tui/style"
 )
 
 func main() {
