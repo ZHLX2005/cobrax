@@ -157,6 +157,7 @@ type TreeDisplayNode struct {
 	IsRunnable  bool
 	Children    []*TreeDisplayNode
 	Flags       []FlagDisplayInfo
+	Cmd         *Command // 保存对原始 Command 的引用
 }
 
 // FlagDisplayInfo flag 显示信息
@@ -204,6 +205,7 @@ func buildDisplayTree(cmd *Command, path string, depth int) *TreeDisplayNode {
 		Path:        currentPath,
 		IsRunnable:  cmd.Run != nil || cmd.RunE != nil,
 		Children:    make([]*TreeDisplayNode, 0),
+		Cmd:         cmd, // 保存对原始 Command 的引用
 	}
 
 	// 递归处理子命令
@@ -349,6 +351,7 @@ func collectPathsWithInfo(node *TreeDisplayNode, prefix string, infos *[]cmdInfo
 		path:       currentPath,
 		short:      node.Description,
 		isRunnable: node.IsRunnable,
+		cmd:        node.Cmd, // 保存对原始 Command 的引用
 	}
 	*infos = append(*infos, info)
 
@@ -360,9 +363,11 @@ func collectPathsWithInfo(node *TreeDisplayNode, prefix string, infos *[]cmdInfo
 // collectFlagsForDisplay 收集 flags 用于显示
 func collectFlagsForDisplay(cmd *Command) []FlagDisplayInfo {
 	var flags []FlagDisplayInfo
+	seen := make(map[string]bool)
 
+	// 收集 LocalFlags
 	cmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {
-		if strings.HasPrefix(flag.Name, "tree-") || flag.Name == "tree" {
+		if strings.HasPrefix(flag.Name, "tree-") || flag.Name == "tree" || seen[flag.Name] {
 			return
 		}
 
@@ -373,6 +378,23 @@ func collectFlagsForDisplay(cmd *Command) []FlagDisplayInfo {
 			DefaultValue: flag.DefValue,
 		}
 		flags = append(flags, info)
+		seen[flag.Name] = true
+	})
+
+	// 收集 PersistentFlags
+	cmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+		if strings.HasPrefix(flag.Name, "tree-") || flag.Name == "tree" || seen[flag.Name] {
+			return
+		}
+
+		info := FlagDisplayInfo{
+			Name:         flag.Name,
+			ShortName:    flag.Shorthand,
+			Description:  flag.Usage,
+			DefaultValue: flag.DefValue,
+		}
+		flags = append(flags, info)
+		seen[flag.Name] = true
 	})
 
 	return flags
