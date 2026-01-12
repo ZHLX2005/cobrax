@@ -4,11 +4,21 @@ import (
 	"strings"
 
 	spf13cobra "github.com/spf13/cobra"
-	"github.com/ZHLX2005/cobrax/tui"
 )
 
+// CommandNode 命令树节点
+type CommandNode struct {
+	ID         string
+	Name       string
+	Use        string
+	Short      string
+	Long       string
+	IsRunnable bool
+	Children   []*CommandNode
+}
+
 // BuildCommandTree 从 cobra 命令构建命令树结构
-func BuildCommandTree(cmd *spf13cobra.Command, path string) *tui.CommandItem {
+func BuildCommandTree(cmd *spf13cobra.Command, path string) *CommandNode {
 	// 构建当前命令路径
 	currentPath := path
 	if path != "" {
@@ -20,36 +30,35 @@ func BuildCommandTree(cmd *spf13cobra.Command, path string) *tui.CommandItem {
 	// 判断命令是否可执行（有 Run 或 RunE）
 	isRunnable := cmd.Run != nil || cmd.RunE != nil
 
-	item := &tui.CommandItem{
+	node := &CommandNode{
 		ID:         cmd.Name(),
 		Name:       cmd.Name(),
 		Use:        cmd.Use,
 		Short:      cmd.Short,
 		Long:       cmd.Long,
 		IsRunnable: isRunnable,
-		Children:   make([]*tui.CommandItem, 0),
+		Children:   make([]*CommandNode, 0),
 	}
 
 	// 获取可用的子命令
 	children := getAvailableCommands(cmd.Commands())
 	for _, child := range children {
-		childItem := BuildCommandTree(child, currentPath)
-		if childItem != nil {
-			item.Children = append(item.Children, childItem)
+		childNode := BuildCommandTree(child, currentPath)
+		if childNode != nil {
+			node.Children = append(node.Children, childNode)
 		}
 	}
 
-	return item
+	return node
 }
 
 // GetExecutableCommands 获取所有可执行的命令（扁平化列表）
-func GetExecutableCommands(cmd *spf13cobra.Command) []*tui.CommandItem {
+func GetExecutableCommands(cmd *spf13cobra.Command) []*CommandNode {
 	root := BuildCommandTree(cmd, "")
-	// 如果根命令有子命令，则只返回子命令中的可执行命令，不返回根命令本身
+	// 如果根命令有子命令，则只返回子命令中的可执行命令
 	if len(root.Children) > 0 {
-		var result []*tui.CommandItem
+		var result []*CommandNode
 		for _, child := range root.Children {
-			// 不传递根命令名称，这样菜单只显示子命令名称，提高编译名兼容性
 			result = append(result, flattenExecutableCommands(child, "")...)
 		}
 		return result
@@ -59,39 +68,34 @@ func GetExecutableCommands(cmd *spf13cobra.Command) []*tui.CommandItem {
 }
 
 // flattenExecutableCommands 递归扁平化获取所有可执行命令
-func flattenExecutableCommands(item *tui.CommandItem, path string) []*tui.CommandItem {
-	result := make([]*tui.CommandItem, 0)
+func flattenExecutableCommands(item *CommandNode, path string) []*CommandNode {
+	result := make([]*CommandNode, 0)
 
-	// 构建当前路径 - 不包含根命令，提高编译名兼容性
-	// 当有根命令和子命令时，只显示子命令名称，不显示根命令前缀
+	// 构建当前路径
 	currentPath := path
 	if path != "" {
-		// 如果已经有路径前缀，说明是嵌套命令，继续添加
 		currentPath = path + " " + item.Use
 	} else {
-		// 根级命令直接使用当前命令名称
 		currentPath = item.Use
 	}
 
 	// 如果是可执行命令，添加到结果
 	if item.IsRunnable {
-		// 对于子命令，不显示根命令前缀，提高编译名兼容性
+		// 简化路径显示（去除根命令前缀）
 		displayPath := currentPath
-		// 检查是否包含根命令前缀（如果有多个部分）
 		parts := strings.Fields(displayPath)
 		if len(parts) > 1 {
-			// 只显示子命令部分，不显示根命令前缀
 			displayPath = strings.Join(parts[1:], " ")
 		}
 
-		result = append(result, &tui.CommandItem{
+		result = append(result, &CommandNode{
 			ID:         item.ID,
 			Name:       item.Name,
-			Use:        displayPath, // 使用简化后的路径，不包含根命令前缀
+			Use:        displayPath,
 			Short:      item.Short,
 			Long:       item.Long,
 			IsRunnable: true,
-			Children:   nil, // 扁平化后不需要子节点
+			Children:   nil,
 		})
 	}
 
@@ -105,7 +109,6 @@ func flattenExecutableCommands(item *tui.CommandItem, path string) []*tui.Comman
 }
 
 // FindCommandByPath 根据路径查找命令
-// 例如: "gocmds note" 会查找 note 子命令
 func FindCommandByPath(root *spf13cobra.Command, path string) *spf13cobra.Command {
 	if path == "" {
 		return root
@@ -153,4 +156,47 @@ func GetCommandFullPath(cmd *spf13cobra.Command) string {
 	}
 
 	return strings.Join(pathParts, " ")
+}
+
+// getAvailableCommands 获取可用的命令
+func getAvailableCommands(cmds []*spf13cobra.Command) []*spf13cobra.Command {
+	var result []*spf13cobra.Command
+	for _, cmd := range cmds {
+		if !cmd.IsAvailableCommand() {
+			continue
+		}
+		if cmd.Hidden {
+			continue
+		}
+		// 过滤掉 completion 命令
+		if isCompletionCommand(cmd) {
+			continue
+		}
+		// 过滤掉 help 命令
+		if cmd.Name() == "help" {
+			continue
+		}
+		result = append(result, cmd)
+	}
+	return result
+}
+
+// isCompletionCommand 检查是否是 completion 相关命令
+func isCompletionCommand(cmd *spf13cobra.Command) bool {
+	name := cmd.Name()
+	completionShells := []string{"bash", "fish", "powershell", "zsh", "pwsh"}
+	for _, shell := range completionShells {
+		if name == shell {
+			return true
+		}
+	}
+	if name == "completion" {
+		return true
+	}
+	if cmd.Annotations != nil {
+		if cmd.Annotations["command"] == "completion" {
+			return true
+		}
+	}
+	return false
 }

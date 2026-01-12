@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/ZHLX2005/cobrax/cobra"
-	"github.com/ZHLX2005/cobrax/tui/style"
 )
 
 func main() {
@@ -13,16 +12,8 @@ func main() {
 	rootCmd := cobra.NewCommand("myapp",
 		cobra.WithShort("My application"),
 		cobra.WithLong("My application is a demo application for cobra-x."),
+		cobra.WithTreeTheme(cobra.DefaultTreeTheme()),
 	)
-
-	// 设置 TUI 配置
-	rootCmd.SetTUIConfig(&cobra.TUIConfig{
-		Enabled:              true,
-		Theme:                style.NewTheme(style.ThemeDefault),
-		ShowDescription:      true,
-		ShowFlags:            true,
-		ConfirmBeforeExecute: true,
-	})
 
 	// 添加 server 命令
 	serverCmd := cobra.NewCommand("server",
