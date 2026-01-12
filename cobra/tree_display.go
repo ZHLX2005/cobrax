@@ -20,12 +20,13 @@ type TreeConfig struct {
 // TreeTheme 树形展示主题
 type TreeTheme struct {
 	// 样式
-	RootStyle       lipgloss.Style
-	BranchStyle     lipgloss.Style
-	LeafStyle       lipgloss.Style
-	DescriptionStyle lipgloss.Style
-	FlagStyle       lipgloss.Style
-	LineStyle       lipgloss.Style
+	RootStyle            lipgloss.Style
+	BranchStyle          lipgloss.Style
+	LeafStyle            lipgloss.Style
+	DescriptionStyle     lipgloss.Style
+	FlagStyle            lipgloss.Style
+	FlagDescriptionStyle lipgloss.Style
+	LineStyle            lipgloss.Style
 }
 
 // DefaultTreeTheme 返回默认树形主题
@@ -40,10 +41,13 @@ func DefaultTreeTheme() *TreeTheme {
 		LeafStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("255")), // white
 		DescriptionStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("242")). // gray
-			Faint(true),
+			Foreground(lipgloss.Color("229")). // bright yellow
+			Italic(true),
 		FlagStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("159")), // cyan
+		FlagDescriptionStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("228")). // yellow
+			Italic(true),
 		LineStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("245")), // dark gray
 	}
@@ -61,10 +65,13 @@ func DraculaTreeTheme() *TreeTheme {
 		LeafStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#F8F8F2")), // foreground
 		DescriptionStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6272A4")). // comment
-			Faint(true),
+			Foreground(lipgloss.Color("#FFB86C")). // orange
+			Italic(true),
 		FlagStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#50FA7B")), // green
+		FlagDescriptionStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F1FA8C")). // yellow
+			Italic(true),
 		LineStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#44475A")), // current line
 	}
@@ -82,10 +89,13 @@ func NordTreeTheme() *TreeTheme {
 		LeafStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#D8DEE9")), // snow storm
 		DescriptionStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#4C566A")). // dark
-			Faint(true),
+			Foreground(lipgloss.Color("#D08770")). // orange
+			Italic(true),
 		FlagStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#A3BE8C")), // green
+		FlagDescriptionStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#EBCB8B")). // yellow
+			Italic(true),
 		LineStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#3B4252")), // polar night
 	}
@@ -103,10 +113,13 @@ func MonokaiTreeTheme() *TreeTheme {
 		LeafStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#F8F8F2")), // foreground
 		DescriptionStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#75715E")). // comment
-			Faint(true),
+			Foreground(lipgloss.Color("#E6DB74")). // yellow
+			Italic(true),
 		FlagStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#A6E22E")), // green
+		FlagDescriptionStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FD971F")). // orange
+			Italic(true),
 		LineStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#3E3D32")), // line
 	}
@@ -124,10 +137,13 @@ func LightTreeTheme() *TreeTheme {
 		LeafStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("16")), // black
 		DescriptionStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("245")). // gray
-			Faint(true),
+			Foreground(lipgloss.Color("94")). // orange
+			Italic(true),
 		FlagStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("28")), // green
+		FlagDescriptionStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("208")). // orange-red
+			Italic(true),
 		LineStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("248")), // light gray
 	}
@@ -320,6 +336,12 @@ func DisplayFlatTree(root *Command, config *TreeConfig) string {
 				flagPrefix := strings.Repeat(" ", len(fmt.Sprintf("%2d. ", i+1)))
 				flagLine := flagPrefix + "   " + flagName
 				builder.WriteString(config.Theme.FlagStyle.Render(flagLine))
+
+				// 如果有描述，在同一行显示
+				if flag.Description != "" {
+					builder.WriteString(" ")
+					builder.WriteString(config.Theme.FlagDescriptionStyle.Render(flag.Description))
+				}
 				builder.WriteString("\n")
 			}
 		}
