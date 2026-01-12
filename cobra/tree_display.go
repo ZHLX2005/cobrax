@@ -229,6 +229,10 @@ func buildDisplayTree(cmd *Command, path string, depth int) *TreeDisplayNode {
 		if !child.IsAvailableCommand() {
 			continue
 		}
+		// 跳过 Cobra 内置命令 (completion, help)
+		if child.Name() == "completion" || child.Name() == "help" {
+			continue
+		}
 		wrapped := &Command{Command: child}
 		childNode := buildDisplayTree(wrapped, currentPath, depth+1)
 		node.Children = append(node.Children, childNode)
