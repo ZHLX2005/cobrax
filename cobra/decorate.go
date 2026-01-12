@@ -77,10 +77,10 @@ func addTreeHandler(cmd *spf13cobra.Command, config *EnhanceConfig) {
 	// 保存原始的帮助函数
 	oldHelpFunc := cmd.HelpFunc()
 
-	// 设置新的帮助函数来检查 --tree flag
+	// 设置新的帮助函数来检查 --tree 或 --tree-flags flag
 	cmd.SetHelpFunc(func(c *spf13cobra.Command, strs []string) {
-		// 检查是否需要显示树
-		if treeFlag, err := cmd.Flags().GetBool("tree"); err == nil && treeFlag {
+		// 检查是否需要显示树（--tree 或 --tree-flags）
+		if shouldShowTreeForCmd(c) {
 			wrappedCmd := &Command{
 				Command:    c,
 				treeConfig: &TreeConfig{Theme: config.TreeTheme},
@@ -99,8 +99,8 @@ func addTreeHandler(cmd *spf13cobra.Command, config *EnhanceConfig) {
 	// 设置 PersistentPreRun 来处理有子命令的情况
 	oldPersistentPreRunE := cmd.PersistentPreRunE
 	cmd.PersistentPreRunE = func(c *spf13cobra.Command, args []string) error {
-		// 检查是否需要显示树
-		if treeFlag, err := cmd.Flags().GetBool("tree"); err == nil && treeFlag {
+		// 检查是否需要显示树（--tree 或 --tree-flags）
+		if shouldShowTreeForCmd(c) {
 			wrappedCmd := &Command{
 				Command:    c,
 				treeConfig: &TreeConfig{Theme: config.TreeTheme},
@@ -115,4 +115,24 @@ func addTreeHandler(cmd *spf13cobra.Command, config *EnhanceConfig) {
 		}
 		return nil
 	}
+}
+
+// shouldShowTreeForCmd 判断是否应该显示树形视图（用于装饰器模式）
+func shouldShowTreeForCmd(cmd *spf13cobra.Command) bool {
+	// 检查 --tree flag
+	if treeFlag, err := cmd.Flags().GetBool("tree"); err == nil && treeFlag {
+		return true
+	}
+
+	// 检查 --tree-flags flag，如果设置了则自动启用树形显示
+	if treeFlags, err := cmd.Flags().GetBool("tree-flags"); err == nil && treeFlags {
+		return true
+	}
+
+	// 检查环境变量
+	if os.Getenv("COBRA_TREE") == "true" {
+		return true
+	}
+
+	return false
 }

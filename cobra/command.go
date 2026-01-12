@@ -147,6 +147,11 @@ func (c *Command) shouldShowTree() bool {
 		return true
 	}
 
+	// 检查 --tree-flags flag，如果设置了则自动启用树形显示
+	if treeFlags, err := c.Flags().GetBool("tree-flags"); err == nil && treeFlags {
+		return true
+	}
+
 	// 检查环境变量
 	if os.Getenv("COBRA_TREE") == "true" {
 		return true
