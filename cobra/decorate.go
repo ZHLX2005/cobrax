@@ -74,14 +74,13 @@ func addTreeFlags(cmd *spf13cobra.Command) {
 
 // addTreeHandler 添加 tree 处理器
 func addTreeHandler(cmd *spf13cobra.Command, config *EnhanceConfig) {
-	// 获取原有的 PreRun
-	oldPreRun := cmd.PreRun
+	// 保存原始的帮助函数
+	oldHelpFunc := cmd.HelpFunc()
 
-	// 设置新的 PreRun
-	cmd.PreRun = func(c *spf13cobra.Command, args []string) {
+	// 设置新的帮助函数来检查 --tree flag
+	cmd.SetHelpFunc(func(c *spf13cobra.Command, strs []string) {
 		// 检查是否需要显示树
 		if treeFlag, err := cmd.Flags().GetBool("tree"); err == nil && treeFlag {
-			// 显示树并退出
 			wrappedCmd := &Command{
 				Command:    c,
 				treeConfig: &TreeConfig{Theme: config.TreeTheme},
@@ -91,10 +90,29 @@ func addTreeHandler(cmd *spf13cobra.Command, config *EnhanceConfig) {
 			fmt.Println(output)
 			os.Exit(0)
 		}
-
-		// 执行原有的 PreRun
-		if oldPreRun != nil {
-			oldPreRun(c, args)
+		// 否则调用原始帮助函数
+		if oldHelpFunc != nil {
+			oldHelpFunc(c, strs)
 		}
+	})
+
+	// 设置 PersistentPreRun 来处理有子命令的情况
+	oldPersistentPreRunE := cmd.PersistentPreRunE
+	cmd.PersistentPreRunE = func(c *spf13cobra.Command, args []string) error {
+		// 检查是否需要显示树
+		if treeFlag, err := cmd.Flags().GetBool("tree"); err == nil && treeFlag {
+			wrappedCmd := &Command{
+				Command:    c,
+				treeConfig: &TreeConfig{Theme: config.TreeTheme},
+			}
+			treeConfig := wrappedCmd.getTreeConfig()
+			output := DisplayFlatTree(wrappedCmd, treeConfig)
+			fmt.Println(output)
+			os.Exit(0)
+		}
+		if oldPersistentPreRunE != nil {
+			return oldPersistentPreRunE(c, args)
+		}
+		return nil
 	}
 }
